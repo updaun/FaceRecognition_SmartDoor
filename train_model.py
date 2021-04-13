@@ -9,10 +9,15 @@ from tkinter import messagebox
 def train(name):
     if name == '':
         print('[오류] 체험자의 이름을 입력해주세요.\n')
-        messagebox.showinfo("스마트 도어 시스템", "체험자의 이름을 입력해주세요.")
+        messagebox.showwarning("스마트 도어 시스템", "체험자의 이름을 입력해주세요.")
     elif os.path.exists('./dataset/'+name) == False:
         print('[오류] 학습 시킬 데이터가 없습니다. 다시 사진을 촬영해주세요.\n')
-        messagebox.showinfo("스마트 도어 시스템", "학습 시킬 데이터가 없습니다.\n다시 사진을 촬영해주세요.")
+        messagebox.showwarning(
+            "스마트 도어 시스템", "학습 시킬 데이터가 없습니다.\n다시 사진을 촬영해주세요.")
+    elif os.path.isfile('./dataset/'+name+'/user1.jpg') == False:
+        print('[오류] 학습 시킬 데이터가 없습니다. 다시 사진을 촬영해주세요.\n')
+        messagebox.showwarning(
+            "스마트 도어 시스템", "학습 시킬 데이터가 없습니다.\n다시 사진을 촬영해주세요.")
     elif name.encode().isalpha():
         print(' '*75)
         print("[ 인공지능 학습을 시작합니다. ]\n")
@@ -41,7 +46,7 @@ def train(name):
         if len(Labels) == 0:
             #print("There is no data to train.")
             print("[오류] 학습 시킬 데이터가 없습니다. 다시 사진을 촬영해주세요.\n")
-            messagebox.showinfo(
+            messagebox.showwarning(
                 "스마트 도어 시스템", "학습 시킬 데이터가 없습니다.\n다시 사진을 촬영해주세요.")
         # Labels를 32비트 정수로 변환
         Labels = np.asarray(Labels, dtype=np.int32)
@@ -57,4 +62,4 @@ def train(name):
 
     else:
         print("[오류] 체험자의 이름을 영어로 입력해주세요.\n")
-        messagebox.showinfo("스마트 도어 시스템", "체험자의 이름을 영어로 입력해주세요.")
+        messagebox.showwarning("스마트 도어 시스템", "체험자의 이름을 영어로 입력해주세요.")
