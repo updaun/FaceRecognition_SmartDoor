@@ -1,1 +1,1 @@
-et_board_ipaddress = "192.168.0.203"
+et_board_ipaddress = "192.168.200.152"
