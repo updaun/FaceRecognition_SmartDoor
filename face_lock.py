@@ -1,177 +1,140 @@
-#! /usr/bin/python
-
-# import the necessary packages
-from imutils.video import VideoStream
-from imutils.video import FPS
-import face_recognition
-import imutils
-import pickle
-import time
 import cv2
-#JDU
-from PIL import ImageFont, ImageDraw, Image
-font = ImageFont.truetype("fonts/gulim.ttc", 20)
+import numpy as np
+from os import listdir
+from os.path import isfile, join
 
 from library.et_board import et_board
 import appconfig
 
 from tkinter import messagebox
 
-#import RPi.GPIO as GPIO
-from tkinter import *
 
-et = et_board(appconfig.et_board_ipaddress)
+def lock(name):
+    et = et_board(appconfig.et_board_ipaddress)
+    if name == '':
+        print('[오류] 체험자의 이름을 입력해주세요.')
+        messagebox.showinfo("스마트 도어 시스템", "체험자의 이름을 입력해주세요.")
+    elif name.encode().isalpha():
+        data_path = 'dataset/' + name + '/'
+        onlyfiles = [f for f in listdir(
+            data_path) if isfile(join(data_path, f))]
+        Training_Data, Labels = [], []
+        for i, files in enumerate(onlyfiles):
+            image_path = data_path + onlyfiles[i]
+            images = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            if images is None:
+                continue
+            Training_Data.append(np.asarray(images, dtype=np.uint8))
+            Labels.append(i)
+        if len(Labels) == 0:
+            print("There is no data to train.")
+            exit()
+        Labels = np.asarray(Labels, dtype=np.int32)
+        model = cv2.face.LBPHFaceRecognizer_create()
+        model.train(np.asarray(Training_Data), np.asarray(Labels))
+        print("[로그] 스마트 도어 작동을 준비하는 중입니다.")
 
+        face_classifier = cv2.CascadeClassifier(
+            'haarcascade_frontalface_default.xml')
 
-def lock():
-    RELAY = 17
-    #GPIO.setwarnings(False)
-    #GPIO.setmode(GPIO.BCM)
-    #GPIO.setup(RELAY, GPIO.OUT)
-    #GPIO.output(RELAY,GPIO.LOW)
+        def face_detector(img, size=0.5):
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = face_classifier.detectMultiScale(gray, 1.3, 5)
+            if faces is ():
+                return img, []
+            for(x, y, w, h) in faces:
+                cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 255), 2)
+                roi = img[y:y+h, x:x+w]
+                roi = cv2.resize(roi, (200, 200))
+            return img, roi  # 검출된 좌표에 사각 박스 그리고(img), 검출된 부위를 잘라(roi) 전달
 
-    #Initialize 'currentname' to trigger only when a new person is identified.
-    currentname = "unknown"
-    #Determine faces from encodings.pickle file model created from train_model.py
-    encodingsP = "encodings.pickle"
-    #use this xml file
-    #https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml
-    cascade = "haarcascade_frontalface_default.xml"
+        # 카메라 열기
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-    # load the known faces and embeddings along with OpenCV's Haar
-    # cascade for face detection
-    #print("[INFO] loading encodings + face detector...")
-    data = pickle.loads(open(encodingsP, "rb").read())
-    detector = cv2.CascadeClassifier(cascade)
+        lock_count = 0
+        unlock_count = 0
 
-    # initialize the video stream and allow the camera sensor to warm up
-    #print("[INFO] starting video stream...")
-    print("[로그] 스마트 도어 작동을 준비하는 중입니다..")
-    vs = VideoStream(src=0).start()
-    #vs = VideoStream(usePiCamera=True).start()
-    time.sleep(2.0)
+        while True:
+            key = cv2.waitKey(1) & 0xFF
+            # 카메라로 부터 사진 한장 읽기
+            ret, frame = cap.read()
+            # 얼굴 검출 시도
+            image, face = face_detector(frame)
+            try:
+                # 검출된 사진을 흑백으로 변환
+                face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+                # 위에서 학습한 모델로 예측시도
+                result = model.predict(face)
+                # result[1]은 신뢰도이고 0에 가까울수록 자신과 같다는 뜻이다.
+                if result[1] < 500:
+                    # ????? 어쨋든 0~100표시하려고 한듯
+                    confidence = int(100*(1-(result[1])/300))
+                    # 유사도 화면에 표시
+                    #display_string = str(confidence)+'% ' + name
+                #cv2.putText(image,display_string,(50,50), cv2.FONT_HERSHEY_DUPLEX,1,(20,20,20),2)
+                # 85 보다 크면 동일 인물로 간주해 UnLocked!
+                if confidence > 83:
+                    display_string = name + ' ' + \
+                        str(confidence)+' % = Allow Access'
+                    cv2.putText(image, display_string, (25, 50),
+                                cv2.FONT_HERSHEY_DUPLEX, 1, (40, 200, 40), 2)
+                    cv2.putText(image, "Door OPEN", (25, 450),
+                                cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0), 2)
+                    cv2.imshow(
+                        'Smart Door System, Press  ESC  key to exit', image)
+                    cv2.moveWindow(
+                        "Smart Door System, Press  ESC  key to exit", 370, 0)
+                    #print('-'*15 + ' 3초를 유지하면, 스마트 도어가 열립니다.  ' + '-'*15)
+                    unlock_count = unlock_count + 1
+                    # print(unlock_count)
+                    if(unlock_count == 20):
+                        # et.run_servo(120)
+                        print('='*75)
+                        print('[ OPEN ! ] 스마트 도어가 열립니다. ' + '-'*40)
+                        print('='*75)
+                        unlock_count = 0
 
-    # start the FPS counter
-    fps = FPS().start()
+                else:
+                    # 85 이하면 타인.. Locked!!!
+                    display_string = '  Access Denied !! '
+                    cv2.putText(image, display_string, (25, 50),
+                                cv2.FONT_HERSHEY_DUPLEX, 1, (40, 40, 200), 2)
+                    cv2.putText(image, "Security System ON", (300, 450),
+                                cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 2)
+                    cv2.imshow(
+                        'Smart Door System, Press  ESC  key to exit', image)
+                    cv2.moveWindow(
+                        "Smart Door System, Press  ESC  key to exit", 370, 0)
 
-    prevTime = 0
-    doorUnlock = False
-
-    # loop over frames from the video file stream
-    while True:
-        # grab the frame from the threaded video stream and resize it
-        # to 500px (to speedup processing)
-        frame = vs.read()
-        # JDU
-        frame = imutils.resize(frame, width=500, height=500)
-        
-        # convert the input frame from (1) BGR to grayscale (for face
-        # detection) and (2) from BGR to RGB (for face recognition)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # detect faces in the grayscale frame
-        rects = detector.detectMultiScale(gray, scaleFactor=1.1,
-            minNeighbors=30, minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE)
-
-        # OpenCV returns bounding box coordinates in (x, y, w, h) order
-        # but we need them in (top, right, bottom, left) order, so we
-        # need to do a bit of reordering
-        boxes = [(y, x + w, y + h, x) for (x, y, w, h) in rects]
-
-        # compute the facial embeddings for each face bounding box
-        encodings = face_recognition.face_encodings(rgb, boxes)
-        names = []
-
-        # loop over the facial embeddings
-        for encoding in encodings:
-            # attempt to match each face in the input image to our known
-            # encodings
-            matches = face_recognition.compare_faces(data["encodings"],
-                encoding)
-            name = "Unknown" #if face is not recognized, then print Unknown
-
-            # check to see if we have found a match
-            if True in matches:
-                # find the indexes of all matched faces then initialize a
-                # dictionary to count the total number of times each face
-                # was matched
-                matchedIdxs = [i for (i, b) in enumerate(matches) if b]
-                counts = {}
-                
-                # to unlock the door
-                #GPIO.output(RELAY,GPIO.HIGH)
-                #et.run_servo(90)
-                prevTime = time.time()
-                doorUnlock = True
-                #print("door unlock")
-                print('-'*15 + '  스마트 도어가 열립니다.  ' + '-'*15)                
-
-                # loop over the matched indexes and maintain a count for
-                # each recognized face face
-                for i in matchedIdxs:
-                    name = data["names"][i]
-                    counts[name] = counts.get(name, 0) + 1
-
-                # determine the recognized face with the largest number
-                # of votes (note: in the event of an unlikely tie Python
-                # will select first entry in the dictionary)
-                name = max(counts, key=counts.get)
-
-                #If someone in your dataset is identified, print their name on the screen
-                if currentname != name:
-                    currentname = name
-                    #print(currentname)
-
-            # update the list of names
-            names.append(name)
-            
-            #lock the door after 3 seconds
-        if doorUnlock == True and time.time() - prevTime > 3:
-            doorUnlock = False
-            #GPIO.output(RELAY,GPIO.LOW)
-            #et.run_servo(180)
-            #print("door lock")
-            print('-'*15 + '  스마트 도어 보안이 가동됩니다. ' + '-'*15)                
-            
-        # loop over the recognized faces
-        for ((top, right, bottom, left), name) in zip(boxes, names):
-            # draw the predicted face name on the image - color is in BGR
-            cv2.rectangle(frame, (left, top), (right, bottom),
-                (0, 255, 0), 2)
-            y = top - 15 if top - 15 > 15 else top + 15
-            cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
-                .8, (255, 0, 0), 2)
-
-        # display the image to our screen
-        cv2.imshow("Smart Door System", frame)
-        cv2.moveWindow("Smart Door System", 500, 0)
-        key = cv2.waitKey(1) & 0xFF
-
-        # quit when 'esc' key is pressed
-        #k = cv2.waitKey(1)
-        if key == 27:
-            #et.run_servo(180)
-            print('='*75)
-            print('-'*15 + '  스마트 도어 시스템을 종료합니다. ' + '-'*15)
-            messagebox.showinfo("스마트 도어 시스템","스마트 도어 시스템을 종료합니다.\n다음 체험자를 위해 체험자 이미지를 삭제해주세요.")                 
-            print('-'*75)
-            print('-'*15 + '  다음 체험자를 위해 체험자 이미지를 삭제해주세요.  ' + '-'*15)                
-            print('='*75)
-            
-            break
-
-        # update the FPS counter
-        fps.update()
-
-    # stop the timer and display FPS information
-    fps.stop()
-    
-    #print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-    #print("[로그] 체험 시간 : {:.2f}".format(fps.elapsed()/60) + ' 분')
-    #print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-
-    # do a bit of cleanup
-    cv2.destroyAllWindows()
-    vs.stop()
+                    lock_count = lock_count + 1
+                    # print(lock_count)
+                    if(lock_count == 50):
+                        # et.run_servo(40)
+                        print('='*75)
+                        print('[ CLOSE ! ] 스마트 도어 보안을 가동합니다. ' + '-'*30)
+                        print('='*75)
+                        lock_count = 0
+            except:
+                # 얼굴 검출 안됨
+                #cv2.putText(image, "Face Not Found", (250, 450), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 2)
+                cv2.putText(image, "FACE Can't Find", (200, 100),
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (255, 0, 0), 2)
+                cv2.imshow('Smart Door System, Press  ESC  key to exit', image)
+                cv2.moveWindow(
+                    "Smart Door System, Press  ESC  key to exit", 370, 0)
+                pass
+            if key == 27 or key == 13:
+                print('='*75)
+                print('-'*15 + '  스마트 도어 시스템을 종료합니다. ' + '-'*15)
+                messagebox.showinfo(
+                    "스마트 도어 시스템", "스마트 도어 시스템을 종료합니다.\n다음 체험자를 위해 체험자 이미지를 삭제해주세요.")
+                print('-'*75)
+                print('-'*15 + '  다음 체험자를 위해 체험자 이미지를 삭제해주세요.  ' + '-'*15)
+                print('='*75)
+                # et.run_servo(40)
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+    else:
+        print("[오류] 체험자의 이름을 영어로 입력해주세요.")
+        messagebox.showinfo("스마트 도어 시스템", "체험자의 이름을 영어로 입력해주세요.")

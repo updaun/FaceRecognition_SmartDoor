@@ -10,13 +10,14 @@ import requests
 import json
 import time
 
+
 class et_board():
     """et_board ip 주소를 먼저 설정하고 사용한다."""
 
     def __init__(self, ip, debug=False):
         super(et_board, self).__init__()
         self.ip = ip
-        self.url = 'http://' + ip  + '/'
+        self.url = 'http://' + ip + '/'
         self.debug = debug
 
     def log(self, str):
@@ -59,15 +60,15 @@ class et_board():
 #et = et_board("192.168.0.160", True)
 
 # run digital
-#et.run_digital(2,1)
-#et.run_digital(2,0)
+# et.run_digital(2,1)
+# et.run_digital(2,0)
 
 # run servo
-#et.run_servo(0)
-#time.sleep(1)
-#et.run_servo(180)
-#time.sleep(1)
-#et.run_servo(90)
+# et.run_servo(0)
+# time.sleep(1)
+# et.run_servo(180)
+# time.sleep(1)
+# et.run_servo(90)
 
 # get get_analog
 #val_string = et.get_analog()
