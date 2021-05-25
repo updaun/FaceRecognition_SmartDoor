@@ -18,3 +18,5 @@ pip install opencv-contrib-python
 pip install cmake
 
 pip install pillow
+
+pip install imutils
