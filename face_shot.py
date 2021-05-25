@@ -50,7 +50,7 @@ def shot(name):
             return cropped_face
 
         # 카메라 실행
-        cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(cv2.CAP_DSHOW)
         # 저장할 이미지 카운트 변수
         count = 0
         noneface_count = 0

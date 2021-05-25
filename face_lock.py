@@ -73,7 +73,7 @@ def lock(name):
             return img, roi  # 검출된 좌표에 사각 박스 그리고(img), 검출된 부위를 잘라(roi) 전달
             # return roi
         # 카메라 열기
-        cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(cv2.CAP_DSHOW)
 
         lock_count = 0
         unlock_count = 0

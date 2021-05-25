@@ -6,7 +6,9 @@ from tkinter import messagebox
 from dir_make import make
 from face_shot import shot
 from train_model import train
-from face_lock import lock
+# 2021.05.25 : no etboard
+#from face_lock import lock
+from face_lock_no_etboard import lock
 from file_remove import remove
 
 
@@ -152,7 +154,8 @@ btn5.pack()
 
 label007.pack()
 
-imgLabel2.pack()
+#2021.05.25 logo
+#imgLabel2.pack()
 
 root.bind('<Return>', lambda event=None: btn2.invoke())
 root.mainloop()
