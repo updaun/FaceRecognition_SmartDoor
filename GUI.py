@@ -6,9 +6,7 @@ from tkinter import messagebox
 from dir_make import make
 from face_shot import shot
 from train_model import train
-# 2021.05.25 : no etboard
-#from face_lock import lock
-from face_lock_no_etboard import lock
+from face_lock import lock
 from file_remove import remove
 
 
