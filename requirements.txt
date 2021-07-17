@@ -1,4 +1,3 @@
-opencv-python==4.1.0.25
 requests
 opencv-contrib-python
 pillow
